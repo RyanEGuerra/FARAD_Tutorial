@@ -1,0 +1,49 @@
+Cross-Platform WSD Node Wrapper Class
+February 6, 2014
+(c) me@ryaneguerra.com
+
+This set of files is intended to be an easy way to detect, connect,
+calibrate, and program any attached WARP or WSD boards running the
+FARAD 802.11 Reference Design courtesy of Mango Communication Inc.
+
+The two files in here do the following:
+
+wsdnode.py - contains the WSDNode class, providing a wrapper class
+             around serial IO ports connecting a WARP or WSD board
+			 via USB to the host computer.
+			 
+			 Example:
+			 >>> from wsdnode import WSDNode
+			 >>> Node = WSDNode.Create()
+			 
+			 The above code snippet will launch an interactive menu
+			 that will list any open WSD or WARP devices attached
+			 to your computer via USB. You select one to attach to
+			 and that node will stay attached to the Node object
+			 until you call Node.close() to free up the serial port
+			 cleanly.
+			 
+			 While attached, you can send/receive commands, query
+			 information, etc... This is very low-grained, so only
+			 radio settings and board calibration is handled via
+			 this interface.
+			 
+wsd_term.py - contains an example application using the WSDNode class.
+			  This example actually creates a user terminal to the
+			  WSDNode that will buffer user input until they hit "Enter."
+			  
+			  It can also be used for hand calibration using the number
+			  keys, or calibration file loading using the docal()
+			  "function" built into the terminal interface.
+			  
+			  It's not perfect, and it's still under development, but it
+			  is cross-platform and has been tested on Linux, Windows 7,
+			  and Mac OS Maverick. It does NOT support Windows 8 at this
+			  time due to lack of specific drivers.
+			  
+			  Python Session Example:
+			  >>> import wsd_term
+			  
+			  or just call the script from the command line/terminal emulator:
+			  
+			  $ python wsd_term.py
