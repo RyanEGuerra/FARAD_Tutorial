@@ -50,13 +50,21 @@ import sys, os, re
 
 VERSION = "0.3"
 
+print "======================= Python Terminal v" + VERSION + " ======================"
+
 # OSX, Linux
 if os.name == 'posix':
     import termios, fcntl, tty
     
 # Windows
 if os.name == 'nt':
-    import msvcrt
+	import msvcrt
+	print
+	print "WARNING: On Windows, we've found that msvcrt.getwch() doesn't handle \"DEL\" keystrokes."
+	print "         What this means is that you can't delete terminal input in this script."
+	print "         If you have fat fingers, you can press \"ESC\" at any time to clear the buffers."
+	print "         Or you can debug this issue and email a fix to me@ryaneguerra.com, your choice."
+	print
 
 Node = None
 

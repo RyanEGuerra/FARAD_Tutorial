@@ -9,11 +9,15 @@ wsdnode.py
   The SCG class was developed and written totally by Naren.
   
   === Change Log ===
-0.5 - added RxIQ calibration as menu option at the same time as I updated the MicroBlaze
-      code to accept those commands. This is not backwards-compatible with older MicroBlaze
-      versions. Also removed static search paths for IronPython. I found that WinPython
-      is a far superior and self-contained installation of Python for Windows 7, so we'll
-      require it's use in the future. Otherwise, installing NumPy and IPY paths/DLLs is a mess.
+0.50 - added RxIQ calibration as menu option at the same time as I updated the MicroBlaze
+       code to accept those commands. This is not backwards-compatible with older MicroBlaze
+       versions. Also removed static search paths for IronPython. I found that WinPython
+       is a far superior and self-contained installation of Python for Windows 7, so we'll
+       require it's use in the future. Otherwise, installing NumPy and IPY paths/DLLs is a mess.
+	   
+0.72 - forget what other updates were. This revision adds a lot of error checking and library
+       checking in preparation for pushing this code to the students. It should be feature
+	   complete with no known bugs to the main wrapper code.
     
 Created on Aug 30, 2013
 @author: me@ryaneguerra.com
@@ -45,7 +49,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #  Relies on PySerial: http://pyserial.sourceforge.net/pyserial.html
 # imports for WSDNode
 import serial, glob, re, os
-
+	
 # imports for SCG
 import math, ctypes
 
@@ -64,14 +68,27 @@ import sys, traceback
     #print sys.path
 
 # version number: added Tx/Rx IQ-imbalance loading
-VERSION = '0.7'
+VERSION = '0.72'
 
 # Print system/version information for helping debug across platforms
-print "Python Ver: " + sys.version
-print "OS String : " + os.name
+print "===== WSDNode Debug Info =========================================="
+print "Python Ver : " + sys.version
+print "OS String  : " + os.name
+print "PySerial   : " + serial.VERSION
 print "WSDNode Ver: " + VERSION
 
+# we found that there were some serious problems with older versions of the driver
+# on linux.
+if float(serial.VERSION) < 2.7 and os.name != 'nt':
+    print "ERROR: your version of PySerial is out of date. Please update to the "
+    print "       most recent version with the following terminal command:"
+    print
+    print "       $ sudo pip install pyserial --upgrade"
+    print
+    print "       Thanks to Pablo Salvador, this script will now exit..."
+    sys.exit("Bad driver version.")
 
+# Some global variables and constants.
 WARP_PROMPT = "WARP$"
 WSD_PROMPT = "wss$"
 DISCOVER_TIMEOUT = 0.001
@@ -264,7 +281,18 @@ class WSDNode(object):
             serials_array = []
             types_array = []
             dev_array = []
-            # Enumerate available TTY devices; this includes
+            if tty_array == None:
+				print "ERROR: No available COM devices found!"
+				print "       This is unusual, as normally several virtual COM ports are"
+				print "       available on every system. A good idea would be to check your"
+				print "       version of Python and PySerial driver above."
+				print "       1. Please send a screenshot of the debug output printed when"
+				print "          this script first runs to me@ryaneguerra.com"
+				print "       2. Check USB cable connections to your WARP/WSD boards."
+				print "       3. Try updating your version of PySerial drivers to the latest version."
+				print
+				sys.exit("Aborting...")
+			# Enumerate available TTY devices; this includes
             for device_path in tty_array:
     #            print "DEBUG: trying to connect to [%s]" % device_path
                 count += 1
@@ -306,7 +334,13 @@ class WSDNode(object):
             sel_ind = None
             while (1):
                 print 'Select a device from the above options...'
-                user_string = raw_input()
+			    # Get user input, but allow for a keyboard interrupt gracefully (e.g. they ctrl+c)
+                try:
+					user_string = raw_input()
+                except KeyboardInterrupt:
+					for open_dev in dev_array:
+					    open_dev.close()
+					sys.exit("Input Cancelled")
                 # Test the user input for validity
                 try:
                     if not user_string or user_string == '':
@@ -1049,9 +1083,10 @@ class WSDNode(object):
         ch = chr(27)
         try:
             dev.write(bytes(ch))
-        except SerialTimeoutException as e:
+        except Exception as e:
             # at least on windows device I found that sometime this was thrown
-            return UNKNOWN_TYPE
+		    print e
+		    return UNKNOWN_TYPE
             
         # try to read lines until you see a "$wsd" or "$WARP"
         count = 0 
