@@ -18,6 +18,8 @@ wsdnode.py
 0.72 - forget what other updates were. This revision adds a lot of error checking and library
        checking in preparation for pushing this code to the students. It should be feature
 	   complete with no known bugs to the main wrapper code.
+	   
+0.73 - Increased the range of the RX IQ Imbalance permissable values. REG
     
 Created on Aug 30, 2013
 @author: me@ryaneguerra.com
@@ -68,7 +70,7 @@ import sys, traceback
     #print sys.path
 
 # version number: added Tx/Rx IQ-imbalance loading
-VERSION = '0.72'
+VERSION = '0.73'
 
 # Print system/version information for helping debug across platforms
 print "===== WSDNode Debug Info =========================================="
@@ -496,7 +498,7 @@ class WSDNode(object):
                             else:
                                 self.mag_db -= 0.01
                         elif self.cal_state == 'RXIQ':
-                            if self.rx_mag_db - 0.01 < -0.7:
+                            if self.rx_mag_db - 0.01 < -1.01:
                                 isOOB = True
                             else:
                                 self.rx_mag_db -= 0.01
@@ -511,7 +513,7 @@ class WSDNode(object):
                             else:
                                 self.mag_db += 0.01
                         elif self.cal_state == 'RXIQ':
-                            if self.rx_mag_db + 0.01 > 0.7:
+                            if self.rx_mag_db + 0.01 > 1.01:
                                 isOOB = True
                             else:
                                 self.rx_mag_db += 0.01
@@ -526,7 +528,7 @@ class WSDNode(object):
                             else:
                                 self.phase_deg -= 0.1
                         elif self.cal_state == 'RXIQ':
-                            if self.rx_phase_deg - 0.1 < -7:
+                            if self.rx_phase_deg - 0.1 < -30:
                                 isOOB = True
                             else:
                                 self.rx_phase_deg -= 0.1
@@ -541,7 +543,7 @@ class WSDNode(object):
                             else:
                                 self.phase_deg += 0.1
                         elif self.cal_state == 'RXIQ':
-                            if self.rx_phase_deg + 0.1 > 7:
+                            if self.rx_phase_deg + 0.1 > 30:
                                 isOOB = True
                             else:
                                 self.rx_phase_deg += 0.1
