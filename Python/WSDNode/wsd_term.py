@@ -20,6 +20,13 @@ Requires PySerial: http://pyserial.sourceforge.net/pyserial.html
 
 Example: >>> python wsd_term.py
 
+Revision History
+=====
+
+0.4 - cleared buffer when first connecting, so that commands don't
+      lag behind screen printouts. REG 02/24/2014
+
+
 @author: me@ryaneguerra.com
 
 The MIT License (MIT)
@@ -48,7 +55,7 @@ from wsdnode import WSDNode
 from signal import signal, SIGINT
 import sys, os, re
 
-VERSION = "0.3"
+VERSION = "0.4"
 
 print "======================= Python Terminal v" + VERSION + " ======================"
 
@@ -58,13 +65,13 @@ if os.name == 'posix':
     
 # Windows
 if os.name == 'nt':
-	import msvcrt
-	print
-	print "WARNING: On Windows, we've found that msvcrt.getwch() doesn't handle \"DEL\" keystrokes."
-	print "         What this means is that you can't delete terminal input in this script."
-	print "         If you have fat fingers, you can press \"ESC\" at any time to clear the buffers."
-	print "         Or you can debug this issue and email a fix to me@ryaneguerra.com, your choice."
-	print
+    import msvcrt
+    print
+    print "WARNING: On Windows, we've found that msvcrt.getwch() doesn't handle \"DEL\" keystrokes."
+    print "         What this means is that you can't delete terminal input in this script."
+    print "         If you have fat fingers, you can press \"ESC\" at any time to clear the buffers."
+    print "         Or you can debug this issue and email a fix to me@ryaneguerra.com, your choice."
+    print
 
 Node = None
 
@@ -155,9 +162,13 @@ class wsd_term():
         Start the interactive terminal with the WSD/WARP device.
         This provides a terminal interface on any OS.
         '''
+        # Clear device buffer by sending an ASCII ESC character to the device.
+        # This should dump the WSD splash owl to the screen.
+        self.Node.executeString(str(unichr(27)), True)
+        
         # Forever pass user input through to the attached USB serial device.
         # To exit the terminal, you must press CTRL+C.
-        print "======================= Python Terminal v" + VERSION + " ======================"
+        print "===================== Python Terminal v" + VERSION + " ===================="
         print "Type: \"docal()\" in the terminal to load a calibration file, or"
         print "      \"quit()\" to exit the terminal."
         regex = re.compile('[0-9]')

@@ -14,12 +14,18 @@ wsdnode.py
        versions. Also removed static search paths for IronPython. I found that WinPython
        is a far superior and self-contained installation of Python for Windows 7, so we'll
        require it's use in the future. Otherwise, installing NumPy and IPY paths/DLLs is a mess.
-	   
+       
 0.72 - forget what other updates were. This revision adds a lot of error checking and library
        checking in preparation for pushing this code to the students. It should be feature
-	   complete with no known bugs to the main wrapper code.
-	   
-0.73 - Increased the range of the RX IQ Imbalance permissable values. REG
+       complete with no known bugs to the main wrapper code.
+       
+0.73 - Increased the range of the RX IQ Imbalance permissable values, and added Coarse and
+       Fine calibration for Rx IQ Imbalance. REG
+       
+0.74 - Changed the way that calibration files are loaded to correspond to firmware versions
+       2.24 and later of the WSD firmware. This makes RXLOFT values frequency-dependent.
+       Also removed the "< " from returned characters to make them look cleaner in the python
+       terminal. This also makes the JSON block parseable. REG
     
 Created on Aug 30, 2013
 @author: me@ryaneguerra.com
@@ -51,7 +57,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #  Relies on PySerial: http://pyserial.sourceforge.net/pyserial.html
 # imports for WSDNode
 import serial, glob, re, os
-	
+    
 # imports for SCG
 import math, ctypes
 
@@ -69,8 +75,8 @@ import sys, traceback
     #sys.path.append(r'c:\Program Files\IronPython 2.7\Lib\site-packages')
     #print sys.path
 
-# version number: added Tx/Rx IQ-imbalance loading
-VERSION = '0.73'
+# version number: made RXLOFT values frequency-dependant with new calibration file format.
+VERSION = '0.74'
 
 # Print system/version information for helping debug across platforms
 print "===== WSDNode Debug Info =========================================="
@@ -81,7 +87,7 @@ print "WSDNode Ver: " + VERSION
 
 # we found that there were some serious problems with older versions of the driver
 # on linux.
-if float(serial.VERSION) < 2.7 and os.name != 'nt':
+if float(serial.VERSION) < 2.6 and os.name != 'nt':
     print "ERROR: your version of PySerial is out of date. Please update to the "
     print "       most recent version with the following terminal command:"
     print
@@ -284,17 +290,17 @@ class WSDNode(object):
             types_array = []
             dev_array = []
             if tty_array == None:
-				print "ERROR: No available COM devices found!"
-				print "       This is unusual, as normally several virtual COM ports are"
-				print "       available on every system. A good idea would be to check your"
-				print "       version of Python and PySerial driver above."
-				print "       1. Please send a screenshot of the debug output printed when"
-				print "          this script first runs to me@ryaneguerra.com"
-				print "       2. Check USB cable connections to your WARP/WSD boards."
-				print "       3. Try updating your version of PySerial drivers to the latest version."
-				print
-				sys.exit("Aborting...")
-			# Enumerate available TTY devices; this includes
+                print "ERROR: No available COM devices found!"
+                print "       This is unusual, as normally several virtual COM ports are"
+                print "       available on every system. A good idea would be to check your"
+                print "       version of Python and PySerial driver above."
+                print "       1. Please send a screenshot of the debug output printed when"
+                print "          this script first runs to me@ryaneguerra.com"
+                print "       2. Check USB cable connections to your WARP/WSD boards."
+                print "       3. Try updating your version of PySerial drivers to the latest version."
+                print
+                sys.exit("Aborting...")
+            # Enumerate available TTY devices; this includes
             for device_path in tty_array:
     #            print "DEBUG: trying to connect to [%s]" % device_path
                 count += 1
@@ -336,13 +342,13 @@ class WSDNode(object):
             sel_ind = None
             while (1):
                 print 'Select a device from the above options...'
-			    # Get user input, but allow for a keyboard interrupt gracefully (e.g. they ctrl+c)
+                # Get user input, but allow for a keyboard interrupt gracefully (e.g. they ctrl+c)
                 try:
-					user_string = raw_input()
+                    user_string = raw_input()
                 except KeyboardInterrupt:
-					for open_dev in dev_array:
-					    open_dev.close()
-					sys.exit("Input Cancelled")
+                    for open_dev in dev_array:
+                        open_dev.close()
+                    sys.exit("Input Cancelled")
                 # Test the user input for validity
                 try:
                     if not user_string or user_string == '':
@@ -453,9 +459,12 @@ class WSDNode(object):
                     print "--> Calibration Quick-write: Tx IQ Imbalance Mode"
                     self.cal_state = 'TXIQ'
                 elif self.cal_state == 'TXIQ':
-                    print "--> Calibration Quick-write: Rx IQ Imbalance Mode"
-                    self.cal_state = 'RXIQ'
-                elif self.cal_state == 'RXIQ':
+                    print "--> Calibration Quick-write: Rx IQ Imbalance Mode - Coarse"
+                    self.cal_state = 'RXIQ_Coarse'
+                elif self.cal_state == 'RXIQ_Coarse':
+                    print "--> Calibration Quick-write: Rx IQ Imbalance Mode - Fine"
+                    self.cal_state = 'RXIQ_Fine'
+                elif self.cal_state == 'RXIQ_Fine':
                     print "--> Calibration Quick-write: Tx LOFT Mode"
                     self.cal_state = 'TXLOFT'
                 else:
@@ -475,7 +484,7 @@ class WSDNode(object):
                     # Just pass through the 1-4, 6-9 character;
                     # The WSD device will handle LOFT settings    
                     self.write(my_cmd, isVerbose)
-                elif self.cal_state == 'TXIQ' or self.cal_state == 'RXIQ':
+                elif self.cal_state == 'TXIQ' or self.cal_state == 'RXIQ_Coarse' or self.cal_state == 'RXIQ_Fine':
                     # Modify the IQ Cal settings
                     isVerbose = False
                     if self.dev_type == WSD_TYPE:
@@ -497,7 +506,7 @@ class WSDNode(object):
                                 isOOB = True
                             else:
                                 self.mag_db -= 0.01
-                        elif self.cal_state == 'RXIQ':
+                        elif self.cal_state == 'RXIQ_Coarse' or self.cal_state == 'RXIQ_Fine':
                             if self.rx_mag_db - 0.01 < -1.01:
                                 isOOB = True
                             else:
@@ -512,7 +521,7 @@ class WSDNode(object):
                                 isOOB = True
                             else:
                                 self.mag_db += 0.01
-                        elif self.cal_state == 'RXIQ':
+                        elif self.cal_state == 'RXIQ_Coarse' or self.cal_state == 'RXIQ_Fine':
                             if self.rx_mag_db + 0.01 > 1.01:
                                 isOOB = True
                             else:
@@ -527,8 +536,13 @@ class WSDNode(object):
                                 isOOB = True
                             else:
                                 self.phase_deg -= 0.1
-                        elif self.cal_state == 'RXIQ':
-                            if self.rx_phase_deg - 0.1 < -30:
+                        elif self.cal_state == 'RXIQ_Coarse':
+                            if self.rx_phase_deg - 0.1 < -100:
+                                isOOB = True
+                            else:
+                                self.rx_phase_deg -= 1
+                        elif self.cal_state == 'RXIQ_Fine':
+                            if self.rx_phase_deg - 0.1 < -100:
                                 isOOB = True
                             else:
                                 self.rx_phase_deg -= 0.1
@@ -542,8 +556,13 @@ class WSDNode(object):
                                 isOOB = True
                             else:
                                 self.phase_deg += 0.1
-                        elif self.cal_state == 'RXIQ':
-                            if self.rx_phase_deg + 0.1 > 30:
+                        elif self.cal_state == 'RXIQ_Coarse':
+                            if self.rx_phase_deg + 0.1 > 100:
+                                isOOB = True
+                            else:
+                                self.rx_phase_deg += 1
+                        elif self.cal_state == 'RXIQ_Fine':
+                            if self.rx_phase_deg + 0.1 > 100:
                                 isOOB = True
                             else:
                                 self.rx_phase_deg += 0.1
@@ -558,7 +577,7 @@ class WSDNode(object):
                     try:
                         if self.cal_state == 'TXIQ':
                             self.setTxIQCompensation(self.mag_db, self.phase_deg)
-                        elif self.cal_state == 'RXIQ':
+                        elif self.cal_state == 'RXIQ_Coarse' or self.cal_state == 'RXIQ_Fine' :
                             self.setRxIQCompensation(self.rx_mag_db, self.rx_phase_deg)
                     except Exception:
                         print "ERROR: Problem with setting IQ Cal values. Potentially helpful msg below:"
@@ -718,7 +737,7 @@ class WSDNode(object):
             # Print any errors encountered in the command
             # Print each received line if verbose
             if (isVerbose == True and line) or ('!' in line):
-                print '< %s' % line.replace("\r", "").rstrip()
+                print '%s' % line.replace("\r", "").rstrip()
             # wait for the expected prompt depending on device type
             if dev_type == WARP_TYPE and (WARP_PROMPT in line or WARP_PROMPT in (lastLine + line)):
                 return 0
@@ -868,11 +887,6 @@ class WSDNode(object):
         The function will try to match the serial number of this WSD with the
         first matching calibration file and load the table to the WSD.
         
-        FIXME: the loading of 2.4 GHz table values doesn't happen correctly.
-               it appears as if the Python code is generating the correct
-               command string and they're getting pushed to the WSD alright,
-               but the WSD code to parse and load those values quits about
-               halfway through.
         '''
         # At this time, there are a couple issues with pass-through calibration
         # 1. it doesn't scale with multiple connected WSD radios.
@@ -902,7 +916,6 @@ class WSDNode(object):
                     break
                 else:
                     pass
-    #                    print "DEBUG: user said no: [%s]" % res
         # Either the user rejected all matching filenames or no matches were
         # found. Print and exit.
         if not config_file:
@@ -976,15 +989,35 @@ class WSDNode(object):
                                                      stripHexPrefix(tokens[1]), \
                                                      stripHexPrefix(tokens[2]), \
                                                      stripHexPrefix(tokens[3]))
-                        print "==> Sending: %s" % cmd_str
-                        index += 1
+                        print "==> %2d Sending: %s" % (index, cmd_str)
                         if self.dev_type == WSD_TYPE:
                             self.executeString(cmd_str, False)
+                            # Naren's calibration files only contain calibration values for actual WiFi
+                            # channels. This means for WiFi channels 1-11, 14. The WiFi channels between
+                            # 11 and 14 are not provided. To simplify the firmware code, all calibration
+                            # points are assumed to be at constant intervals. Thus, we repeat the last
+                            # calibration value twice to fill out the frequency table.
+                            if band == 1 and index == 13:
+                                cmd_str = "c%1d%02X%s%s%s0" % (band, \
+                                                     index + 1, \
+                                                     stripHexPrefix(tokens[1]), \
+                                                     stripHexPrefix(tokens[2]), \
+                                                     stripHexPrefix(tokens[3]))
+                                print "==> %2d Sending: %s (REPEAT)" % (index + 1, cmd_str)
+                                self.executeString(cmd_str, False)
+                                cmd_str = "c%1d%02X%s%s%s0" % (band, \
+                                                     index + 2, \
+                                                     stripHexPrefix(tokens[1]), \
+                                                     stripHexPrefix(tokens[2]), \
+                                                     stripHexPrefix(tokens[3]))
+                                print "==> %2d Sending: %s (REPEAT)" % (index + 2, cmd_str)
+                                self.executeString(cmd_str, False)
                         elif self.dev_type == WARP_TYPE:
                             self.executeString("Q0" + cmd_str, False)
                         else:
                             print "ERROR: bad type! Aborting..."
                             return
+                        index += 1
                     # ===========================================
                     elif state == 'RX_IQ':
                         try:
@@ -998,15 +1031,35 @@ class WSDNode(object):
                                                      stripHexPrefix(tokens[1]), \
                                                      stripHexPrefix(tokens[2]), \
                                                      stripHexPrefix(tokens[3]))
-                        print "==> Sending: %s" % cmd_str
-                        index += 1
+                        print "==> %2d Sending: %s" % (index, cmd_str)
                         if self.dev_type == WSD_TYPE:
                             self.executeString(cmd_str, False)
+                            # Naren's calibration files only contain calibration values for actual WiFi
+                            # channels. This means for WiFi channels 1-11, 14. The WiFi channels between
+                            # 11 and 14 are not provided. To simplify the firmware code, all calibration
+                            # points are assumed to be at constant intervals. Thus, we repeat the last
+                            # calibration value twice to fill out the frequency table.
+                            if band == 1 and index == 13:
+                                cmd_str = "c%1d%02X%s%s%s1" % (band, \
+                                                             index + 1, \
+                                                             stripHexPrefix(tokens[1]), \
+                                                             stripHexPrefix(tokens[2]), \
+                                                             stripHexPrefix(tokens[3]))
+                                print "==> %2d Sending: %s (REPEAT)" % (index + 1, cmd_str)
+                                self.executeString(cmd_str, False)
+                                cmd_str = "c%1d%02X%s%s%s1" % (band, \
+                                                             index + 2, \
+                                                             stripHexPrefix(tokens[1]), \
+                                                             stripHexPrefix(tokens[2]), \
+                                                             stripHexPrefix(tokens[3]))
+                                print "==> %2d Sending: %s (REPEAT)" % (index + 2, cmd_str)
+                                self.executeString(cmd_str, False)
                         elif self.dev_type == WARP_TYPE:
                             self.executeString("Q0" + cmd_str, False)
                         else:
                             print "ERROR: bad type! Aborting..."
                             return
+                        index += 1
                     # ===========================================
                     elif state == 'TXLOFT':
                         try:
@@ -1015,12 +1068,11 @@ class WSDNode(object):
                             print "Malformed TXLOFT Cal Entry:"
                             print " {{%s}}" %line
                             return
-                        cmd_str = "c%1d%02X%s%s" % (band, \
+                        cmd_str = "c%1d%02X%s%s0" % (band, \
                                                    index, \
                                                    stripHexPrefix(tokens[1]), \
                                                    stripHexPrefix(tokens[2]))
-                        print "==> Sending: %s" % cmd_str
-                        index += 1
+                        print "==> %2d Sending: %s" % (index, cmd_str)
                         if self.dev_type == WSD_TYPE:
                             self.executeString(cmd_str, False)
                         elif self.dev_type == WARP_TYPE:
@@ -1028,26 +1080,46 @@ class WSDNode(object):
                         else:
                             print "ERROR: bad type! Aborting..."
                             return
+                        index += 1
                     # ===========================================
                     elif state == 'RXLOFT':
                         try:
-                            assert len(tokens) == 2
+                            assert len(tokens) == 3
                         except:
                             print "Malformed TXLOFT Cal Entry:"
                             print " {{%s}}" %line
                             return
-                        cmd_str = "c%1d%s%s" % (band, \
-                                               stripHexPrefix(tokens[0]), \
-                                               stripHexPrefix(tokens[1]))
-                        print "==> Sending: %s" % cmd_str
-                        index += 1
+                        cmd_str = "c%1d%02X%s%s1" % (band, \
+                                                index, \
+                                                stripHexPrefix(tokens[1]), \
+                                                stripHexPrefix(tokens[2]))
+                        print "==> %2d Sending: %s" % (index, cmd_str)
                         if self.dev_type == WSD_TYPE:
                             self.executeString(cmd_str, False)
+                            # Naren's calibration files only contain calibration values for actual WiFi
+                            # channels. This means for WiFi channels 1-11, 14. The WiFi channels between
+                            # 11 and 14 are not provided. To simplify the firmware code, all calibration
+                            # points are assumed to be at constant intervals. Thus, we repeat the last
+                            # calibration value twice to fill out the frequency table.
+                            if band == 1 and index == 13:
+                                cmd_str = "c%1d%02X%s%s1" % (band, \
+                                                index + 1, \
+                                                stripHexPrefix(tokens[1]), \
+                                                stripHexPrefix(tokens[2]))
+                                print "==> %2d Sending: %s (REPEAT)" % (index + 1, cmd_str)
+                                self.executeString(cmd_str, False)
+                                cmd_str = "c%1d%02X%s%s1" % (band, \
+                                                index + 2, \
+                                                stripHexPrefix(tokens[1]), \
+                                                stripHexPrefix(tokens[2]))
+                                print "==> %2d Sending: %s (REPEAT)" % (index + 2, cmd_str)
+                                self.executeString(cmd_str, False)
                         elif self.dev_type == WARP_TYPE:
                             self.executeString("Q0" + cmd_str, False)
                         else:
                             print "ERROR: bad type! Aborting..."
                             return
+                        index += 1
                     # ===========================================
                     else:
                         print "ERROR: bad state %s. Aborting..." % state
@@ -1062,8 +1134,8 @@ class WSDNode(object):
         else:
             print "ERROR: bad type! Aborting..."
             return
-       
         
+        print "Calibration Load Finished."
 
     @staticmethod        
     def getDeviceType(dev):
@@ -1087,8 +1159,8 @@ class WSDNode(object):
             dev.write(bytes(ch))
         except Exception as e:
             # at least on windows device I found that sometime this was thrown
-		    print e
-		    return UNKNOWN_TYPE
+            print e
+            return UNKNOWN_TYPE
             
         # try to read lines until you see a "$wsd" or "$WARP"
         count = 0 
