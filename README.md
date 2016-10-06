@@ -1,7 +1,7 @@
 FARAD_Tutorial
 ==============
 
-Tutorial Repository for Distributing Code Quickly
+GIT tutorial and code for summer students working with the FARAD "SuperWiFi" equipment. This repository contains flash images and instructions for programming WARPv3 + WURC nodes. For more information about the equipment, please see: www.skylarkwireless.com/WURC
 
 Usage Notes
 ==========
