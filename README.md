@@ -78,7 +78,7 @@ Also contains early Alpha version of the WARPNet transport framework. This is ve
 # Personal Legal Disclaimer & License
 The following applies to the code in this repository authored by Ryan E. Guerra (just about all of it,
 unless otherwise indicated by the comments). Note that there is a directory of code included covered
-by the WARP Open Source License, which supersedes this notice.
+by the WARP Open Source License in /Python/WARPNet/ which supersedes this notice.
 
 (c) Ryan E. Guerra ryan@guerra.rocks 2012-2016
 
