@@ -74,3 +74,18 @@ Contains WSDNode code for easily interacting with a white space daughtercard or 
 with the white space 80211 design.
 
 Also contains early Alpha version of the WARPNet transport framework. This is very, very Alpha.
+
+# Personal Legal Disclaimer & License
+The following applies to the code in this repository.
+
+(c) Ryan E. Guerra ryan@guerra.rocks 2012-2016
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+The code contained in this repositoryis licensed under the Apache 2.0 Software License.
+http://www.apache.org/licenses/LICENSE-2.0
